@@ -4,50 +4,52 @@ import PIL.Image
 import numpy as np
 import tqdm
 
-seed = 3
+if __name__ == "__main__":
+    batch_size = 64
+    num_batches = 5
+    num_images = int(batch_size * num_batches)
+    num_inference_steps = 4
+    seeds = np.random.randint(0, 100, num_batches)
 
-# load all models
-unet = UNet2DModel.from_pretrained("CompVis/ldm-celebahq-256", subfolder="unet")
-vqvae = VQModel.from_pretrained("CompVis/ldm-celebahq-256", subfolder="vqvae")
-scheduler = DDIMScheduler.from_config("CompVis/ldm-celebahq-256", subfolder="scheduler")
+    # load all models
+    unet = UNet2DModel.from_pretrained("CompVis/ldm-celebahq-256", subfolder="unet")
+    vqvae = VQModel.from_pretrained("CompVis/ldm-celebahq-256", subfolder="vqvae")
+    scheduler = DDIMScheduler.from_config("CompVis/ldm-celebahq-256", subfolder="scheduler")
 
-# set to cuda
-torch_device = "cuda" if torch.cuda.is_available() else "cpu"
+    # set to cuda
+    torch_device = "cuda" if torch.cuda.is_available() else "cpu"
 
-unet.to(torch_device)
-vqvae.to(torch_device)
+    unet.to(torch_device)
+    vqvae.to(torch_device)
+    
+    dataset = torch.zeros((num_batches, num_inference_steps, batch_size, unet.in_channels, unet.sample_size, unet.sample_size))
+    for batch_idx in range(num_batches):
+        seed = seeds[batch_idx]
+        generator = torch.manual_seed(seed)
+        noise = torch.randn((batch_size, unet.in_channels, unet.sample_size, unet.sample_size), generator=generator).to(torch_device)
+        scheduler.set_timesteps(num_inference_steps=num_inference_steps)
 
-# generate gaussian noise to be decoded
-generator = torch.manual_seed(seed)
-noise = torch.randn(
-    (1, unet.in_channels, unet.sample_size, unet.sample_size),
-    generator=generator,
-).to(torch_device)
+        image = noise
+        for timestep_idx in tqdm.tqdm(range(num_inference_steps)):
+            t = scheduler.timesteps[timestep_idx]
+            dataset[batch_idx,timestep_idx] = image 
+            with torch.no_grad():
+                residual = unet(image, t)["sample"]
+            prev_image = scheduler.step(residual, t, image, eta=0.0)["prev_sample"]
+            image = prev_image
 
-# set inference steps for DDIM
-scheduler.set_timesteps(num_inference_steps=200)
+    dataset = dataset.view(-1, batch_size, unet.in_channels, unet.sample_size, unet.sample_size)
+    # print(dataset.shape)
+    torch.save(dataset, 'logs/inference_values.pt')
 
-image = noise
-for t in tqdm.tqdm(scheduler.timesteps):
-    # predict noise residual of previous image
-    with torch.no_grad():
-        residual = unet(image, t)["sample"]
+    # decode image with vae
+    # with torch.no_grad():
+        # image = vqvae.decode(image)
 
-    # compute previous image x_t according to DDIM formula
-    prev_image = scheduler.step(residual, t, image, eta=0.0)["prev_sample"]
+    # process image
+    # image_processed = image.sample.cpu().permute(0, 2, 3, 1)
+    # image_processed = (image_processed + 1.0) * 127.5
+    # image_processed = image_processed.clamp(0, 255).numpy().astype(np.uint8)
+    # image_pil = PIL.Image.fromarray(image_processed[0])
 
-    # x_t-1 -> x_t
-    image = prev_image
-
-# decode image with vae
-with torch.no_grad():
-    image = vqvae.decode(image)
-
-# process image
-print(image)
-image_processed = image.to('cpu').permute(0, 2, 3, 1)
-image_processed = (image_processed + 1.0) * 127.5
-image_processed = image_processed.clamp(0, 255).numpy().astype(np.uint8)
-image_pil = PIL.Image.fromarray(image_processed[0])
-
-image_pil.save(f"generated_image_{seed}.png")
+    # image_pil.save(f"generated_image_{seed}.png")
