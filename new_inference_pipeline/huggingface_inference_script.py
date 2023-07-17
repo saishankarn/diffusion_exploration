@@ -5,10 +5,10 @@ import numpy as np
 import tqdm
 
 if __name__ == "__main__":
-    batch_size = 64
-    num_batches = 5
+    batch_size = 16
+    num_batches = 10
     num_images = int(batch_size * num_batches)
-    num_inference_steps = 4
+    num_inference_steps = 1000
     seeds = np.random.randint(0, 100, num_batches)
 
     # load all models
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     unet.to(torch_device)
     vqvae.to(torch_device)
     
-    dataset = torch.zeros((num_batches, num_inference_steps, batch_size, unet.in_channels, unet.sample_size, unet.sample_size))
+    dataset = torch.zeros((num_batches, num_inference_steps, batch_size, unet.in_channels, unet.sample_size, unet.sample_size), device=torch_device)
     for batch_idx in range(num_batches):
         seed = seeds[batch_idx]
         generator = torch.manual_seed(seed)
