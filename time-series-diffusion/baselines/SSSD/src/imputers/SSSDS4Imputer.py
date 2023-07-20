@@ -26,7 +26,7 @@ class Conv(nn.Module):
 class ZeroConv1d(nn.Module):
     def __init__(self, in_channel, out_channel):
         super(ZeroConv1d, self).__init__()
-        self.conv = nn.Conv1d(in_channel, out_channel, kernel_size=1, padding=0)
+        self.conv = nn.Conv1d(in_channel, out_channel, kernel_size=1, padding=0) 
         self.conv.weight.data.zero_()
         self.conv.bias.data.zero_()
 

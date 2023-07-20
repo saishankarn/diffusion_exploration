@@ -98,7 +98,7 @@ def train(output_directory,
         print('No valid checkpoint model found, start training from initialization.')
 
         
-        
+         
     
     ### Custom data loading and reshaping ###
         
@@ -110,13 +110,14 @@ def train(output_directory,
     training_data = torch.from_numpy(training_data).float().cuda()
     print('Data loaded')
 
-    
+    transposed_mask = get_mask_rm(training_data[0], missing_k)
+    # print(transposed_mask.shape, training_data[0].shape)
+    # print(np.where(transposed_mask))
     
     # training
     n_iter = ckpt_iter + 1
     while n_iter < n_iters + 1:
         for batch in training_data:
-
             if masking == 'rm':
                 transposed_mask = get_mask_rm(batch[0], missing_k)
             elif masking == 'mnr':
@@ -124,12 +125,13 @@ def train(output_directory,
             elif masking == 'bm':
                 transposed_mask = get_mask_bm(batch[0], missing_k)
 
+            # transposed_mask removes missing_k number of steps for each feature, and the removed steps are not same for all the features
             mask = transposed_mask.permute(1, 0)
             mask = mask.repeat(batch.size()[0], 1, 1).float().cuda()
             loss_mask = ~mask.bool()
             batch = batch.permute(0, 2, 1)
 
-            assert batch.size() == mask.size() == loss_mask.size()
+            assert batch.size() == mask.size() == loss_mask.size() # batch_size x num_features x num_timesteps
 
             # back-propagation
             optimizer.zero_grad()
@@ -178,6 +180,8 @@ if __name__ == "__main__":
     global diffusion_hyperparams
     diffusion_hyperparams = calc_diffusion_hyperparams(
         **diffusion_config)  # dictionary of all diffusion hyperparameters
+    
+    # print(diffusion_hyperparams)
 
     global model_config
     if train_config['use_model'] == 0:
@@ -186,5 +190,9 @@ if __name__ == "__main__":
         model_config = config['sashimi_config']
     elif train_config['use_model'] == 2:
         model_config = config['wavenet_config']
+
+    # so, we have trainset_config for datasets 
+    # train_config for training related parameters
+    # diffusion_config for basic hyperparameters 
 
     train(**train_config)

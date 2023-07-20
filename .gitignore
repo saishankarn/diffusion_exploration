@@ -1,1 +1,4 @@
 new_inference_pipeline/logs
+time-series-diffusion/datasets
+time-series-diffusion/baselines/SSSD/src/results
+time-series-diffusion/baselines/CSDI/results

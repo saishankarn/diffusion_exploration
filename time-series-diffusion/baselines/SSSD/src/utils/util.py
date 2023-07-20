@@ -179,15 +179,15 @@ def training_loss(net, loss_fn, X, diffusion_hyperparams, only_generate_missing=
 
     audio = X[0]
     cond = X[1]
-    mask = X[2]
-    loss_mask = X[3]
+    mask = X[2] # mask has zeros in missing locations
+    loss_mask = X[3] # loss mask has ones in missing locations
 
     B, C, L = audio.shape  # B is batchsize, C=1, L is audio length
     diffusion_steps = torch.randint(T, size=(B, 1, 1)).cuda()  # randomly sample diffusion steps from 1~T
 
     z = std_normal(audio.shape)
     if only_generate_missing == 1:
-        z = audio * mask.float() + z * (1 - mask).float()
+        z = audio * mask.float() + z * (1 - mask).float() # z has noise only in the missing locations and audio values in the other locations
     transformed_X = torch.sqrt(Alpha_bar[diffusion_steps]) * audio + torch.sqrt(
         1 - Alpha_bar[diffusion_steps]) * z  # compute x_t from q(x_t|x_0)
     epsilon_theta = net(
