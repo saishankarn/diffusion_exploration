@@ -7,7 +7,7 @@ import datetime
 # custom imports 
 # from csdi import CSDIDiff
 from dataset import get_dataloader_electricity
-# from training import train
+from diffusers import UNet1DModel
 # from testing import evaluate
 
     
@@ -38,21 +38,26 @@ if __name__ == "__main__":
     with open(foldername + "config.json", "w") as f:
         json.dump(config, f, indent=4)
 
-    train_loader = get_dataloader_electricity(config["train"]["batch_size"], \
+    #### loading the training dataset
+    train_loader = get_dataloader_electricity(config["train"]["dataset_path"], \
                     config["model"]["ts_dim"], \
                     config["train"]["batch_size"], \
-                    device=args.device
                 )
     
-    # model = CSDIDiff(config, args.device).to(args.device)
+    #### initializing the model
+    model = UNet1DModel(in_channels=1, out_channels=1)
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # if args.modelfolder == "":
-    #     train(model, \
-    #         config["train"], \
-    #         train_loader, \
-    #         valid_loader=valid_loader, \
-    #         foldername=foldername
-    #     )
+    model = model.to(device)
+
+    if args.modelfolder == "":
+        train(model, \
+            config["train"], \
+            train_loader, \
+            valid_loader=valid_loader, \
+            foldername=foldername
+        )
     # else:
     #     model.load_state_dict(torch.load("./save/" + args.modelfolder + "/model.pth"))
 
