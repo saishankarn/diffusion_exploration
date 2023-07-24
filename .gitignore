@@ -2,3 +2,5 @@ new_inference_pipeline/logs
 time-series-diffusion/datasets
 time-series-diffusion/baselines/SSSD/src/results
 time-series-diffusion/baselines/CSDI/results
+time-series-diffusion/baselines/actual_csdi/save
+time-series-diffusion/baselines/csdi_for_generation/save
