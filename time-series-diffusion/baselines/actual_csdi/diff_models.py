@@ -69,7 +69,7 @@ class diff_CSDI(nn.Module):
                     diffusion_embedding_dim=config["diffusion_embedding_dim"],
                     nheads=config["nheads"],
                 )
-                for _ in range(config["layers"])
+                for _ in range(config["layers"]) 
             ]
         )
 

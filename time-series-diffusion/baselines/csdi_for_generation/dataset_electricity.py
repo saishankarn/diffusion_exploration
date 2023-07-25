@@ -6,17 +6,18 @@ import torch
 
 
 class Electricity_Dataset(Dataset):
-    def __init__(self, eval_length=36, target_dim=1, mode="train", validindex=0):
+    def __init__(self, eval_length=36, target_dim=1):
         self.eval_length = eval_length
         self.target_dim = target_dim
 
         num_freqs = 20
         time_steps = 1000
-        freqs = list(np.linspace(0.05, 1, num_freqs))
+        freqs = list(np.linspace(1, 5, num_freqs))
         time = np.linspace(0, 2*np.pi, time_steps)
+
         data = [np.sin(2 * np.pi * freq * time) for freq in freqs]
         data = np.array(data)
-        intervals = [(0+i,eval_length+i) for i in range(0,time_steps-eval_length-1)]
+        intervals = [(0+i,eval_length+i) for i in range(0,time_steps-eval_length)]
         dataset = np.zeros((len(intervals)*num_freqs, eval_length))
 
         for i in range(num_freqs):
@@ -41,10 +42,10 @@ class Electricity_Dataset(Dataset):
         return self.dataset.shape[0]
 
 
-def get_dataloader(batch_size, device, horizon):
-    dataset = Electricity_Dataset(mode="train", eval_length=horizon)
+def get_dataloader(batch_size, horizon):
+    dataset = Electricity_Dataset(eval_length=horizon)
     train_loader = DataLoader(
-        dataset, batch_size=batch_size, num_workers=1, shuffle=True
+        dataset, batch_size=batch_size, num_workers=0, shuffle=True
     )
 
     return train_loader

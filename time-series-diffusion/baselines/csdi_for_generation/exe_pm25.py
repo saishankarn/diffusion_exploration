@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(description="CSDI")
 parser.add_argument("--config", type=str, default="base.yaml")
 parser.add_argument('--device', default='cuda:0', help='Device for Attack') 
 parser.add_argument("--modelfolder", type=str, default="")
-parser.add_argument("--horizon", type=int, default=36, help="synthesis horizon")
+parser.add_argument("--horizon", type=int, default=48, help="synthesis horizon")
  
 args = parser.parse_args()
 print(args)
@@ -34,7 +34,6 @@ with open(foldername + "config.json", "w") as f:
 
 train_loader = get_dataloader(
     config["train"]["batch_size"], 
-    device=args.device, 
     horizon=args.horizon
 )
 model = CSDI_PM25(config, args.device, horizon=args.horizon).to(args.device)

@@ -15,10 +15,9 @@ class CSDI_base(nn.Module):
         self.emb_time_dim = config["model"]["timeemb"] # 128
         self.emb_feature_dim = config["model"]["featureemb"] # 16
         self.is_unconditional = config["model"]["is_unconditional"] # 1
-        self.target_strategy = config["model"]["target_strategy"]
 
         # print(self.emb_time_dim, self.emb_feature_dim)
-        self.emb_total_dim = self.emb_time_dim + self.emb_feature_dim
+        self.emb_total_dim = self.emb_time_dim + self.emb_feature_dim # 144
         if self.is_unconditional == False:
             self.emb_total_dim += 1  # for conditional mask
         self.embed_layer = nn.Embedding(
@@ -61,10 +60,8 @@ class CSDI_base(nn.Module):
         # print(B,K,L)
 
         time_embed = self.time_embedding(observed_tp, self.emb_time_dim)  # (B,L,emb)
-        time_embed = time_embed.unsqueeze(2).expand(-1, -1, K, -1)
-        feature_embed = self.embed_layer(
-            torch.arange(self.target_dim).to(self.device)
-        )  # (K,emb)
+        time_embed = time_embed.unsqueeze(2).expand(-1, -1, K, -1) # (B, L, K, emb)
+        feature_embed = self.embed_layer(torch.arange(self.target_dim).to(self.device)) # (K,emb)
         feature_embed = feature_embed.unsqueeze(0).unsqueeze(0).expand(B, L, -1, -1)
         # print(time_embed.shape, feature_embed.shape)
 
@@ -93,7 +90,7 @@ class CSDI_base(nn.Module):
 
         predicted = self.diffmodel(total_input, side_info, t)  # (B,K,L)
         # print(predicted.shape, observed_data.shape)
-
+        # print(predicted.shape, noise.shape)
         loss = F.mse_loss(predicted, noise)
         return loss
 
@@ -140,25 +137,5 @@ class CSDI_base(nn.Module):
 class CSDI_PM25(CSDI_base):
     def __init__(self, config, device, horizon=36, target_dim=1):
         super(CSDI_PM25, self).__init__(target_dim, horizon, config, device)
-
-    def process_data(self, batch):
-        observed_data = batch["observed_data"].to(self.device).float()
-        observed_mask = batch["observed_mask"].to(self.device).float()
-        observed_tp = batch["timepoints"].to(self.device).float()
-        gt_mask = batch["gt_mask"].to(self.device).float()
-        cut_length = batch["cut_length"].to(self.device).long()
-        for_pattern_mask = batch["hist_mask"].to(self.device).float()
-
-        observed_data = observed_data.permute(0, 2, 1)
-        observed_mask = observed_mask.permute(0, 2, 1)
-        gt_mask = gt_mask.permute(0, 2, 1)
-        for_pattern_mask = for_pattern_mask.permute(0, 2, 1)
-
-        return (
-            observed_data,
-            observed_mask,
-            observed_tp,
-            gt_mask,
-            for_pattern_mask,
-            cut_length,
-        )
+        # horizon is the time series length that we want to predict
+        # target_dim is the feature size that we associate with each element in the time series

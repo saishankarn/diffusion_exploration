@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 
 def plot_timeseries(ts, plot_path):
     x = np.arange(ts.shape[0])
+    print(ts)
     plt.plot(x, ts)
     plt.savefig(plot_path)
     plt.close()
@@ -66,7 +67,7 @@ def train(
             torch.save(model.state_dict(), best_model_path)
 
 
-        if (epoch_no + 1) % valid_epoch_interval == 0:
+        if epoch_no % valid_epoch_interval == 0:
             model.eval()
             with torch.no_grad():
                 output = model.synthesize()

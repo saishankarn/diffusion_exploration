@@ -1,7 +1,7 @@
 train:
   epochs: 200
   batch_size: 16 
-  lr: 1.0e-3
+  lr: 1.0e-4
 
 diffusion:
   layers: 4 
@@ -11,10 +11,9 @@ diffusion:
   beta_start: 0.0001
   beta_end: 0.5
   num_steps: 50
-  schedule: "quad"
+  schedule: "linear"
 
 model:
   is_unconditional: 1
   timeemb: 128
   featureemb: 16
-  target_strategy: "random"
