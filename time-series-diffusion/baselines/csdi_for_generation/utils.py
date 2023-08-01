@@ -13,7 +13,7 @@ def plot_timeseries(ts, plot_path):
     plt.savefig(plot_path)
     plt.close()
 
-def train(
+def train( 
     model,
     config,
     train_loader,
@@ -33,7 +33,7 @@ def train(
     os.makedirs(plot_dir, exist_ok=True)
 
 
-
+ 
     best_training_loss = 1e10
     for epoch_no in range(config["train"]["epochs"]):
         avg_loss = 0

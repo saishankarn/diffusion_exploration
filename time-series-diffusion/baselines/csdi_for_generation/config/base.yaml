@@ -1,6 +1,6 @@
 train:
-  epochs: 200
-  batch_size: 16 
+  epochs: 2000
+  batch_size: 512 
   lr: 1.0e-4
 
 diffusion:
@@ -17,3 +17,5 @@ model:
   is_unconditional: 1
   timeemb: 128
   featureemb: 16
+  horizon: 48
+  target_dim: 1

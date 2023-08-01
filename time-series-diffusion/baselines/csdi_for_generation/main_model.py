@@ -12,7 +12,7 @@ class CSDI_base(nn.Module):
         self.target_dim = target_dim
         self.horizon = horizon
  
-        self.emb_time_dim = config["model"]["timeemb"] # 128
+        self.emb_time_dim = config["model"]["timeemb"] # 128 
         self.emb_feature_dim = config["model"]["featureemb"] # 16
         self.is_unconditional = config["model"]["is_unconditional"] # 1
 

@@ -514,7 +514,7 @@ class CSDI_base(nn.Module):
         return samples, observed_data, target_mask, observed_mask, observed_tp
 
     
-class CSDI_Custom(CSDI_base):
+class CSDI_Custom(CSDI_base): 
     def __init__(self, config, device, target_dim=35):
         super(CSDI_Custom, self).__init__(target_dim, config, device)
 
@@ -853,7 +853,7 @@ class CSDIImputer:
 
         train_loader, valid_loader, test_loader = get_dataloader_train_impute(
             series=series,
-            train_split=config["train"]["train_split"],
+            train_split=config["train"]["train_split"], 
             valid_split=config["train"]["valid_split"],
             len_dataset=series.shape[0],
             batch_size=config["train"]["batch_size"],
