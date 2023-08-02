@@ -6,3 +6,4 @@ time-series-diffusion/baselines/actual_csdi/save
 time-series-diffusion/baselines/csdi_for_generation/save
 time-series-diffusion/analyse_datasets/
 time-series-diffusion/sanity
+time-series-diffusion/baselines/latent_diffusion/save
