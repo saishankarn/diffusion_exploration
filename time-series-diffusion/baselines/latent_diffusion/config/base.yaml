@@ -1,8 +1,10 @@
 train:
+  split: 0.95
   epochs: 2000
   batch_size: 64
-  lr: 1.0e-4
+  lr: 1.0e-5
   num_plots: 6
+  pretrained_loc: ''
 
 model:
   latent_dim: 16

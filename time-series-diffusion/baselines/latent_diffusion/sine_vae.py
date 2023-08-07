@@ -4,14 +4,11 @@ import yaml
 import os
 import datetime
 import numpy as np
-import pandas as pd
-import seaborn as sns
 import argparse
 import matplotlib.pyplot as plt
 
 import torch 
 import torch.nn as nn 
-import torch.functional as F 
 from torch.utils.data import Dataset, DataLoader
 
 class Sinusoidal():
@@ -19,9 +16,9 @@ class Sinusoidal():
         self.eval_length = eval_length
         self.n_features = n_features 
 
-        num_freqs = 10
+        num_freqs = 100
         time_steps = 1000
-        freqs = list(np.linspace(1, 5, num_freqs))
+        freqs = list(np.linspace(1, 20, num_freqs))
         time = np.linspace(0, 2*np.pi, time_steps)
 
         data = [np.sin(2 * np.pi * freq * time) for freq in freqs]
@@ -58,75 +55,110 @@ class GetDataset(Dataset):
         return self.dataset.shape[0]
     
 class Encoder(nn.Module):
-    def __init__(self, seq_len, n_features, embedding_dim=16):
+    def __init__(self, seq_len, n_features, embedding_dim=16, num_layers=4, bidirectional=True):
         super(Encoder, self).__init__()
 
         self.seq_len, self.n_features = seq_len, n_features
-        self.embedding_dim, self.hidden_dim = embedding_dim, 2 * embedding_dim
+        self.embedding_dim = embedding_dim
+        self.num_layers = num_layers
+        self.bidirectional = bidirectional
+        self.flat_dim = self.num_layers*2*self.embedding_dim if self.bidirectional else self.num_layers*self.embedding_dim
 
         self.rnn1 = nn.LSTM(
             input_size=n_features, # 1
-            hidden_size=self.hidden_dim, # 32
-            num_layers=1,
-            batch_first=True
+            hidden_size=32, # 32
+            num_layers=self.num_layers,
+            batch_first=True,
+            bidirectional=self.bidirectional
         )
         
-        self.rnn2 = nn.LSTM(
-            input_size=self.hidden_dim, 
+        self.mean = nn.LSTM(
+            input_size=32*2, 
             hidden_size=embedding_dim,
-            num_layers=1,
-            batch_first=True
+            num_layers=self.num_layers,
+            batch_first=True,
+            bidirectional=True
+        )
+
+        self.var = nn.LSTM(
+            input_size=32*2, 
+            hidden_size=embedding_dim,
+            num_layers=4,
+            batch_first=True,
+            bidirectional=self.bidirectional
         )
 
     def forward(self, x):
         x, (_, _) = self.rnn1(x) # the shape of x is 1x140x32
-        x, (hidden_n, _) = self.rnn2(x)
-        flat_dim = self.rnn2.num_layers*2*self.embedding_dim if self.rnn2.bidirectional else self.rnn2.num_layers*self.embedding_dim
-        return hidden_n.permute(1,0,2).view(-1,flat_dim).unsqueeze(1)
+        _, (mu, _) = self.mean(x)
+        _, (sigma, _) = self.var(x)
+        mu = mu.permute(1,0,2).reshape(-1, self.flat_dim)
+        sigma = sigma.permute(1,0,2).reshape(-1, self.flat_dim)
+        return mu, sigma
   
 class Decoder(nn.Module):
-    def __init__(self, seq_len, input_dim=64, n_features=1):
+    def __init__(self, seq_len, embedding_dim=64, n_features=1, num_layers=4, bidirectional=True):
         super(Decoder, self).__init__()
 
-        self.seq_len, self.input_dim = seq_len, input_dim
-        self.hidden_dim, self.n_features = 2 * input_dim, n_features
+        self.num_layers = num_layers
+        self.bidirectional = bidirectional 
+        self.input_size = self.num_layers*2*embedding_dim if self.bidirectional else self.num_layers*embedding_dim
+        self.seq_len = seq_len
+        self.output_features = embedding_dim*2 if self.bidirectional else embedding_dim
+        self.n_features = n_features
 
         self.rnn1 = nn.LSTM(
-            input_size=input_dim,
-            hidden_size=input_dim,
+            input_size=self.input_size,
+            hidden_size=32,
             num_layers=1,
-            batch_first=True
+            batch_first=True,
+            bidirectional=self.bidirectional
         )
 
         self.rnn2 = nn.LSTM(
-            input_size=input_dim,
-            hidden_size=self.hidden_dim,
+            input_size=32*2,
+            hidden_size=embedding_dim,
             num_layers=1,
-            batch_first=True
+            batch_first=True,
+            bidirectional=self.bidirectional
         )
 
-        self.output_layer = nn.Linear(self.hidden_dim, n_features)
+        self.rnn3 = nn.LSTM(
+            input_size=embedding_dim*2,
+            hidden_size=1,
+            num_layers=1,
+            batch_first=True,
+            bidirectional=False
+        )
 
     def forward(self, x):
+        B = x.shape[0]
+        x = x.unsqueeze(1)
         x = x.repeat(1, self.seq_len, 1)
-        x, (hidden_n, cell_n) = self.rnn1(x)
-        x, (hidden_n, cell_n) = self.rnn2(x)
-        x = x.reshape((-1, self.hidden_dim))
-        x = self.output_layer(x)
-        return x.reshape(-1, self.seq_len, self.n_features)
+        x, (_, _) = self.rnn1(x)
+        x, (_, _) = self.rnn2(x)
+        x, (_, _) = self.rnn3(x)
+        return x
   
 class RecurrentAutoencoder(nn.Module):
     def __init__(self, seq_len, n_features, embedding_dim=64):
         super(RecurrentAutoencoder, self).__init__()
 
-        self.encoder = Encoder(seq_len, n_features, embedding_dim)
-        self.decoder = Decoder(seq_len, embedding_dim, n_features)
+        self.num_layers = 4
+        self.bidirectional = True 
+        self.encoder = Encoder(seq_len, n_features, embedding_dim, self.num_layers, self.bidirectional)
+        self.decoder = Decoder(seq_len, embedding_dim, n_features, self.num_layers, self.bidirectional)
+
+    def reparameterization(self, mean, var):
+        epsilon = torch.randn_like(var)        
+        z = mean + var*epsilon
+        return z
 
     def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
-
-        return x
+        mu, log_var = self.encoder(x)
+        z = self.reparameterization(mu, torch.exp(0.5 * log_var))
+        x = self.decoder(z)
+        return x, mu, log_var
     
 def plot_results(model, val_dataloader, num_plots, log_dir, epoch, device):
     fig, axs = plt.subplots(
@@ -140,7 +172,7 @@ def plot_results(model, val_dataloader, num_plots, log_dir, epoch, device):
     model = model.eval()
     for data in val_dataloader:
         data = data.to(device)
-        predictions = model(data)
+        predictions, _, _ = model(data)
         for i in range(num_plots):
             pred = predictions[i].squeeze(-1).cpu().detach().numpy()
             true = data[i].squeeze(-1).cpu().numpy()
@@ -155,7 +187,12 @@ def plot_results(model, val_dataloader, num_plots, log_dir, epoch, device):
     plt.savefig(save_loc)
     plt.close('all')
 
-  
+def loss_function(x, x_hat, mean, log_var, criterion):
+    reproduction_loss = criterion(x_hat, x)
+    KLD = - 0.5 * torch.mean(1+ log_var - mean.pow(2) - log_var.exp())
+    # print(reproduction_loss.item(), KLD.item())
+    return reproduction_loss + KLD
+
 def train_model(model, train_dataloader, val_dataloader, n_epochs, device, log_dir, num_plots=6, lr=1e-4):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.L1Loss(reduction='mean').to(device)
@@ -172,10 +209,8 @@ def train_model(model, train_dataloader, val_dataloader, n_epochs, device, log_d
             optimizer.zero_grad()
 
             seq_true = seq_true.to(device)
-            seq_pred = model(seq_true)
-
-            loss = criterion(seq_pred, seq_true)
-
+            seq_pred, mu, log_var = model(seq_true)
+            loss = loss_function(seq_true, seq_pred, mu, log_var, criterion)
             loss.backward()
             optimizer.step()
 
@@ -186,9 +221,9 @@ def train_model(model, train_dataloader, val_dataloader, n_epochs, device, log_d
         with torch.no_grad():
             for seq_true in val_dataloader:
                 seq_true = seq_true.to(device)
-                seq_pred = model(seq_true)
+                seq_pred, mu, log_var = model(seq_true)
 
-                loss = criterion(seq_pred, seq_true)
+                loss = loss_function(seq_true, seq_pred, mu, log_var, criterion)
                 val_losses.append(loss.item())
 
         train_loss = np.mean(train_losses)
@@ -250,7 +285,7 @@ if __name__ == "__main__":
     print(model)
 
     pretrained_weights_loc = config["train"]["pretrained_loc"]
-    if pretrained_weights_loc != None:
+    if pretrained_weights_loc != '':
         model.load_state_dict(torch.load(pretrained_weights_loc))
 
     num_epochs = config["train"]["epochs"]

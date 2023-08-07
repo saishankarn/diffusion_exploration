@@ -1,0 +1,24 @@
+train:
+  split: 0.95
+  epochs: 2000
+  batch_size: 64
+  lr: 1.0e-5
+  num_plots: 6
+  pretrained_loc: 'save/sine_20230806_205748/results/weights/best_model.pth'
+  dataset_dir: 'save/sine_20230806_205748/'
+  
+model:
+  latent_dim: 128
+  latent_feat_size: 1
+  latent_feat_dim: 16
+  horizon: 48
+  time_embedding_dim: 128
+  layers: 4 
+  proj_channels: 64 
+  nheads: 8
+
+diffusion:
+  beta_start: 0.0001
+  beta_end: 0.5
+  num_steps: 50
+  schedule: "linear"
