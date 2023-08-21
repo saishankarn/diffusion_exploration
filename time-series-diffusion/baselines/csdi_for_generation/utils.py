@@ -19,7 +19,7 @@ def train(
     train_loader,
     valid_loader=None,
     valid_epoch_interval=1,
-    foldername="", 
+    foldername="",  
 ):
     optimizer = Adam(model.parameters(), lr=config["train"]["lr"], weight_decay=1e-6)
 
@@ -41,7 +41,6 @@ def train(
         with tqdm(train_loader, mininterval=5.0, maxinterval=50.0) as it:
             for batch_no, train_batch in enumerate(it, start=1):
                 optimizer.zero_grad()
-
                 loss = model(train_batch)
                 loss.backward()
                 avg_loss += loss.item()
@@ -71,7 +70,7 @@ def train(
             model.eval()
             with torch.no_grad():
                 output = model.synthesize()
-                ts = output.detach().cpu().numpy()[0][0]
+                ts = output.detach().cpu().numpy()[0][0] 
                 plot_path = os.path.join(plot_dir, str(epoch_no) + '.png')
                 plot_timeseries(ts, plot_path)
 

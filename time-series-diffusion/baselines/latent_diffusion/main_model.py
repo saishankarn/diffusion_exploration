@@ -21,7 +21,7 @@ class LDM_base(nn.Module):
 
         self.config["model"]["side_dim"] = self.time_embedding_dim #+ self.latent_feature_dim
         self.config["model"]["input_dim"] = 1
-        self.diffmodel = diff_CSDI(self.config)
+        self.diffmodel = diff_CSDI(self.config) 
 
         # parameters for diffusion models
         self.num_steps = self.config["diffusion"]["num_steps"]

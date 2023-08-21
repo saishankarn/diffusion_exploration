@@ -1,0 +1,28 @@
+train:
+  split: 0.95
+  epochs: 2000
+  batch_size: 64
+  lr: 1.0e-4
+  num_plots: 6
+  pretrained_loc: 'save/diffusion_20230820_224330/model_best.pth'
+  dataset_dir: ''
+  run_eval_after_every: 10
+  repeat_latent_num: 10
+  
+model:
+  latent_dim: 16 # num latent features representing the time series
+  num_latent_features: 1
+  pos_embedding_dim: 128
+  time_embedding_dim: 128
+  layers: 4 
+  proj_channels: 64  
+  nheads: 8
+  is_conditional: True
+  label_dim: 3
+
+diffusion:
+  beta_start: 0.0001
+  beta_end: 0.5
+  num_steps: 50
+  schedule: "linear"
+

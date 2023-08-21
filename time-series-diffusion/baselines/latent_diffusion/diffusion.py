@@ -114,6 +114,9 @@ if __name__ == "__main__":
 
     denoising_model = LDM(config, device)
     denoising_model = denoising_model.to(device)
+    denoising_pretrained_loc = config["train"]["pretrained_loc"]
+    if os.path.exists(denoising_pretrained_loc):
+        denoising_model.load_state_dict(torch.load(denoising_pretrained_loc))
 
     autoencoder = RecurrentAutoencoder(seq_len=config["model"]["horizon"], n_features=1, embedding_dim=16)
     autoencoder = autoencoder.to(device)

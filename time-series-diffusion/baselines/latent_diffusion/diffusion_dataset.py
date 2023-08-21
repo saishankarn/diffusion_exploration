@@ -11,9 +11,9 @@ class Sinusoidal():
         self.eval_length = config["model"]["horizon"]
         self.embedding_dim = config["model"]["latent_dim"]
 
-        num_freqs = 10
+        num_freqs = 100
         time_steps = 1000
-        freqs = list(np.linspace(1, 5, num_freqs))
+        freqs = list(np.linspace(1, 20, num_freqs))
         time = np.linspace(0, 2*np.pi, time_steps)
 
         data = [np.sin(2 * np.pi * freq * time) for freq in freqs]
@@ -23,7 +23,7 @@ class Sinusoidal():
 
         for i in range(num_freqs):
             orig_dataset = data[i] 
-            for j in range(len(intervals)):
+            for j in range(len(intervals)): 
                 min_ = intervals[j][0]
                 max_ = intervals[j][1]
  

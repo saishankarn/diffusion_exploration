@@ -1,0 +1,150 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import os 
+os.system("unset LD_LIBRARY_PATH")
+import numpy as np
+from tqdm import tqdm
+import datetime
+import matplotlib.pyplot as plt
+
+import torch
+from torch.utils.data import DataLoader
+
+from config import DatasetConfig, VAEConfig, UnconditionalLDMConfig
+from dataset import GetDataset
+from model import TimeSeriesVariationalAutoEncoder
+from unconditional_ldm import UnConditionalLDM
+
+
+def plot_results(model, val_dataloader, num_plots, log_dir, epoch, device):
+    fig, axs = plt.subplots(nrows=1, ncols=num_plots, sharey=True, sharex=True, figsize=(32, 8))
+    model = model.eval()
+    for val_batch in val_dataloader:
+        seq_true = val_batch["observed_data"].to(device)
+        _, _, predictions= model(val_batch)
+        for i in range(num_plots):
+            pred = predictions[i].squeeze(0).cpu().detach().numpy()
+            true = seq_true[i].squeeze(0).cpu().numpy()
+            axs[i].plot(true, label='true') 
+            axs[i].plot(pred, label='reconstructed')
+        break
+    fig.tight_layout()
+
+    save_dir = os.path.join(log_dir, 'qualitative')
+    os.makedirs(save_dir, exist_ok=True)
+    save_loc = os.path.join(save_dir, str(epoch)+'.png')
+    plt.savefig(save_loc)
+    plt.close('all')
+
+def plot_results(latent, autoencoder, plot_path):
+    fig, axs = plt.subplots(nrows=1, ncols=latent.shape[0], sharey=True, sharex=True, figsize=(32, 8))
+    autoencoder = autoencoder.eval()
+    pred = autoencoder.decode(latent)
+    for i in range(latent.shape[0]):
+        ts = pred[i][0].detach().cpu().numpy()
+        axs[i].plot(np.arange(ts.shape[0]), ts)
+    fig.tight_layout()
+    plt.savefig(plot_path)
+    plt.close('all')
+
+def train(denoising_model, vae_model, train_dataloader, val_dataloader, diffusion_model_config, log_dir, device):
+    optimizer = torch.optim.Adam(denoising_model.parameters(), lr=diffusion_model_config.learning_rate, weight_decay=1e-6)
+    p1 = int(0.75 * diffusion_model_config.n_epochs)
+    p2 = int(0.9 * diffusion_model_config.n_epochs)
+    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[p1, p2], gamma=0.1) 
+
+    best_training_loss = 1e10
+    for epoch_no in range(diffusion_model_config.n_epochs):
+        avg_loss = 0
+        denoising_model.train()
+
+        with tqdm(train_dataloader, mininterval=5.0, maxinterval=50.0) as it:  
+            for batch_no, train_batch in enumerate(it, start=1):
+                true_data = train_batch["observed_data"].to(device)
+                input_mean = torch.zeros((true_data.shape[0], diffusion_model_config.max_seq_len))
+                input_log_var = torch.zeros((true_data.shape[0], diffusion_model_config.max_seq_len))
+                with torch.no_grad():
+                    mean, log_var, pred_data = vae_model(train_batch)
+                    input_mean = mean 
+                    input_log_var = log_var   
+                epsilon = torch.randn((true_data.shape[0], diffusion_model_config.max_seq_len)).to(device)        
+                data_sample = input_mean + input_log_var * epsilon
+                data_sample = data_sample.reshape(true_data.shape[0], 1, diffusion_model_config.max_seq_len) # 1 input channel
+                train_batch["observed_data"] = data_sample
+                
+                optimizer.zero_grad()
+                loss = denoising_model(train_batch)           
+                loss.backward()
+                avg_loss += loss.item()
+                optimizer.step()
+                it.set_postfix(ordered_dict={"avg_loss": avg_loss / batch_no, "epoch": epoch_no}, refresh=False)
+  
+            lr_scheduler.step()
+        
+        if avg_loss < best_training_loss:
+            best_training_loss = avg_loss
+            print("\n best loss is updated to ", avg_loss / batch_no, "at", epoch_no)
+            best_model_path = os.path.join(log_dir, "model_best.pth")
+            torch.save(denoising_model.state_dict(), best_model_path)
+
+        denoising_model.eval()
+        with torch.no_grad():
+            output = denoising_model.synthesize()
+            plot_path = os.path.join(log_dir, str(epoch_no) + '.png')
+            plot_results(output, vae_model, plot_path)
+
+        # plot_results(denoising_model, vae_model, val_dataloader, diffusion_model_config.n_plots, log_dir, epoch_no, device)
+    
+        
+    last_model_path = os.path.join(log_dir, "model_last.pth")
+    torch.save(denoising_model.state_dict(), last_model_path)
+
+if __name__ == "__main__":
+    dataset_config = DatasetConfig() 
+    vae_config = VAEConfig()
+    diffusion_model_config = UnconditionalLDMConfig()
+
+    train_dataset = GetDataset(dataset_config=dataset_config, train=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=vae_config.train_batch_size, num_workers=0, shuffle=True)
+
+    test_dataset = GetDataset(dataset_config=dataset_config, train=False)    
+    val_dataloader = DataLoader(test_dataset, batch_size=vae_config.val_batch_size, num_workers=0, shuffle=True)
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    vae_model = TimeSeriesVariationalAutoEncoder(model_config=vae_config, device=device)
+    vae_model = vae_model.to(device)
+    if vae_config.pretrained_loc != '':
+        vae_model.load_state_dict(torch.load(vae_config.pretrained_loc))
+
+    current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")  
+    foldername = ("./save/diffusion" + "_" + current_time + "/")
+
+    print('model folder:', foldername)
+    os.makedirs(foldername, exist_ok=True)
+
+    log_dir = os.path.join(foldername, 'results')
+    os.makedirs(log_dir, exist_ok=True)
+
+    denoising_model = UnConditionalLDM(model_config=diffusion_model_config, device=device)
+    denoising_model = denoising_model.to(device)
+    if diffusion_model_config.pretrained_loc != '':
+        denoising_model.load_state_dict(torch.load(diffusion_model_config.pretrained_loc))
+
+    train(denoising_model, vae_model, train_dataloader, val_dataloader, diffusion_model_config, log_dir, device)
+
+
+

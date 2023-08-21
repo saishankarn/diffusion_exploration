@@ -75,14 +75,13 @@ class diff_CSDI(nn.Module):
 
     def forward(self, x, cond_info, diffusion_step):
         B, inputdim, K, L = x.shape
-
         x = x.reshape(B, inputdim, K * L)
-        x = self.input_projection(x)
+        x = self.input_projection(x) # Batch_size x 1 x K*L to Batch_size 64 x K*L
         x = F.relu(x)
-        x = x.reshape(B, self.channels, K, L)
+        x = x.reshape(B, self.channels, K, L) # Batch_size x 64 x K x L
 
         diffusion_emb = self.diffusion_embedding(diffusion_step)
-        # print(x.shape, cond_info.shape, diffusion_emb.shape)
+        print(x.shape, cond_info.shape, diffusion_emb.shape)
 
         skip = []
         for layer in self.residual_layers:
@@ -151,5 +150,5 @@ class ResidualBlock(nn.Module):
         residual, skip = torch.chunk(y, 2, dim=1)
         x = x.reshape(base_shape)
         residual = residual.reshape(base_shape)
-        skip = skip.reshape(base_shape)
+        skip = skip.reshape(base_shape) 
         return (x + residual) / math.sqrt(2.0), skip

@@ -47,4 +47,4 @@ if args.modelfolder == "":
         foldername=foldername,
 )
 else:
-    model.load_state_dict(torch.load("./save/" + args.modelfolder + "/model.pth"))
+    model.load_state_dict(torch.load("./save/" + args.modelfolder + "/model.pth")) 

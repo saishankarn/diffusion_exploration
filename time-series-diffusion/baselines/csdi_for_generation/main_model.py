@@ -10,7 +10,7 @@ class CSDI_base(nn.Module):
         super().__init__()
         self.device = device
         self.target_dim = target_dim
-        self.horizon = horizon
+        self.horizon = horizon 
  
         self.emb_time_dim = config["model"]["timeemb"] # 128 
         self.emb_feature_dim = config["model"]["featureemb"] # 16
@@ -87,7 +87,7 @@ class CSDI_base(nn.Module):
         # print(noisy_data.shape, observed_data.shape, cond_mask.shape)
 
         total_input = noisy_data.unsqueeze(1) # process the input before forward pass to the neural network
-
+        print(total_input.shape)
         predicted = self.diffmodel(total_input, side_info, t)  # (B,K,L)
         # print(predicted.shape, observed_data.shape)
         # print(predicted.shape, noise.shape)
@@ -115,7 +115,7 @@ class CSDI_base(nn.Module):
             synthesized_output = coeff1 * (synthesized_output - coeff2 * predicted_noise)
 
             if tidx > 0:
-                noise = torch.randn_like(sample_output)
+                noise = torch.randn_like(sample_output) 
                 sigma = (
                     (1.0 - self.alpha[tidx - 1]) / (1.0 - self.alpha[tidx]) * self.beta[tidx]
                 ) ** 0.5
@@ -126,9 +126,10 @@ class CSDI_base(nn.Module):
     def forward(self, batch, is_train=1):
         observed_data = batch["observed_data"].to(self.device).float()
         observed_tp = batch["timepoints"].to(self.device).float()
+        print(observed_data.shape, observed_tp.shape)
 
         side_info = self.get_side_info(observed_tp, observed_data)
-        # print(side_info.shape, observed_data.shape)
+        print(side_info.shape, observed_data.shape)
 
         loss_func = self.calc_loss if is_train == 1 else self.calc_loss_valid
 

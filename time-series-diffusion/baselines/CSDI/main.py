@@ -45,7 +45,7 @@ if __name__ == "__main__":
                 )
     
     #### initializing the model
-    model = UNet1DModel(in_channels=1, out_channels=1)
+    model = UNet1DModel(in_channels=33, out_channels=1)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -57,7 +57,7 @@ if __name__ == "__main__":
             train_loader, \
             valid_loader=valid_loader, \
             foldername=foldername
-        )
+        ) 
     # else:
     #     model.load_state_dict(torch.load("./save/" + args.modelfolder + "/model.pth"))
 

@@ -2,10 +2,10 @@ train:
   split: 0.95
   epochs: 2000
   batch_size: 64
-  lr: 1.0e-5
+  lr: 1.0e-4
   num_plots: 6
-  pretrained_loc: 'save/sine_20230806_205748/results/weights/best_model.pth'
-  dataset_dir: 'save/sine_20230806_205748/'
+  pretrained_loc: 'save/diffusion_20230809_221913/model_best.pth'
+  dataset_dir: 'save/sine_20230809_214233/'
   
 model:
   latent_dim: 128
