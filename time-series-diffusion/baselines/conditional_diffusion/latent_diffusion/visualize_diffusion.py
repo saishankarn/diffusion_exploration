@@ -27,53 +27,84 @@ class GetDiffusionDataset(Dataset):
     def __getitem__(self, org_index):
         return {"mean": self.mean_dataset[org_index],
                 "var": self.var_dataset[org_index],
-                "label": self.labels[org_index],
+                "label": self.labels[org_index], 
                 "ts": self.ts[org_index]}
 
     def __len__(self):
         return self.mean_dataset.shape[0]
     
-def plot_results(gt_ts_plot, pred_ts_plot, gt_label_plot, plot_path):
-    fig, axs = plt.subplots(nrows=1, ncols=gt_ts_plot.shape[0], sharey=True, sharex=True, figsize=(32, 8))
-    for i in range(gt_ts_plot.shape[0]):
-        axs[i].plot(np.arange(gt_ts_plot[i][0].shape[0]), gt_ts_plot[i][0], label='gt')
-        axs[i].plot(np.arange(pred_ts_plot[i][0].shape[0]), pred_ts_plot[i][0], label='pred')
-        title = 'a=' + str(gt_label_plot[i][0]) + ', ' + 'f=' + str(gt_label_plot[i][1]) + ', ' + 'p=' + str(gt_label_plot[i][2])
-        axs[i].set_title(title)
+def plot_results(plot_dict, plot_path):
+    gt_ts_plot = plot_dict["gt_ts_plot"] 
+    gt_label_plot = plot_dict["gt_label_plot"]
+    pred_ts_dict = plot_dict["pred_ts_plot"]
+
+    timestamps_to_plot = list(pred_ts_dict.keys())
+    num_timestamps_to_plot = len(timestamps_to_plot)
+    num_plots = gt_ts_plot.shape[0]
+    fig, axs = plt.subplots(nrows=num_plots, ncols=num_timestamps_to_plot, sharey=True, sharex=True, figsize=(48, 32))
+    
+    for plot_idx in range(num_plots):
+        gt_label_elem = gt_label_plot[plot_idx]
+        gt_ts_elem = gt_ts_plot[plot_idx]
+    
+        for timestamp_idx, timestamp in enumerate(timestamps_to_plot):
+            title = 'a=' + str(gt_label_elem[0]) + ', ' + 'f=' + str(gt_label_elem[1]) + ', ' + 'p=' + str(gt_label_elem[2]) + ', ' + 't=' + str(timestamp)
+    
+            pred_ts_elem = pred_ts_dict[timestamp][plot_idx]          
+            axs[plot_idx][timestamp_idx].plot(np.arange(gt_ts_elem.shape[0]), gt_ts_elem, label='gt')
+            axs[plot_idx][timestamp_idx].plot(np.arange(pred_ts_elem.shape[0]), pred_ts_elem, label='pred')
+
+            axs[plot_idx][timestamp_idx].set_title(title, fontsize=20)
+            axs[plot_idx][timestamp_idx].legend(fontsize=20)
+            axs[plot_idx][timestamp_idx].set_ylim(-1.2,1.2)
+
     fig.tight_layout()
     plt.savefig(plot_path)
     plt.close('all') 
 
-def visualize_diffusion(diffmodel, config, train_loader, val_loader, autoencoder, foldername=""):
+def visualize_diffusion(diffmodel, config, val_loader, autoencoder, foldername=""):
     # for plotting
     autoencoder = autoencoder.eval()
     num_plots = config["train"]["num_plots"]
-    plot_dir = os.path.join(foldername, 'plots')
+    plot_dir = os.path.join(foldername, 'diff_viz')
     os.makedirs(plot_dir, exist_ok=True)
+    timestamps_to_plot = [0, 20, 40, 43, 46, 49] # this corresponds to 49, 29, 9, 6, 3, 0
+    plot_dict = {}
 
     diffmodel.eval()
     with torch.no_grad():
         for val_idx, val_batch in enumerate(val_loader):
             gt_label = val_batch["label"]
             gt_ts = val_batch["ts"]
+            gt_ts_plot = gt_ts[:num_plots].cpu().numpy()
+            gt_ts_plot = gt_ts_plot.squeeze(1)
+            gt_label_plot = gt_label[:num_plots].cpu().numpy()
+            plot_dict["gt_ts_plot"] = gt_ts_plot
+            plot_dict["gt_label_plot"] = gt_label_plot
+
 
             outputs = diffmodel.synthesize_for_visualization(gt_label)
+            pred_ts_dict = {}
             for tidx, output in enumerate(outputs):
                 encoded = output.reshape(gt_label.shape[0], config["model"]["latent_dim"])
                 pred_ts = autoencoder.decode(encoded)
                 pred_ts = pred_ts.detach().cpu()
-                    
-                gt_ts_plot = gt_ts[:num_plots].cpu().numpy()
-                gt_label_plot = gt_label[:num_plots].cpu().numpy()
                 pred_ts_plot = pred_ts[:num_plots].cpu().numpy()
+                pred_ts_plot = pred_ts_plot.squeeze(1)
+                if tidx in timestamps_to_plot:
+                    pred_ts_dict[tidx] = pred_ts_plot
 
-                    plot_path = os.path.join(plot_dir, str(epoch_no) + '_' + str(val_idx) + '.png')
-                    plot_results(gt_ts_plot, pred_ts_plot, gt_label_plot, plot_path)
+            plot_dict["pred_ts_plot"] = pred_ts_dict
+            plot_path = os.path.join(plot_dir, str(val_idx) + '.png')
+            plot_results(plot_dict, plot_path)
+            break 
+    
+    # print(plot_dict)
+    
+    #             plot_results(gt_ts_plot, pred_ts_plot, gt_label_plot, plot_path)
 
-                print("l1 loss for the validation set : ", avg_val_loss/val_idx)
-
-    last_model_path = os.path.join(foldername, "model_last.pth")
-    torch.save(diffmodel.state_dict(), last_model_path)
+    # last_model_path = os.path.join(foldername, "model_last.pth")
+    # torch.save(diffmodel.state_dict(), last_model_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TS-Autoencoder") 
@@ -135,5 +166,5 @@ if __name__ == "__main__":
     if os.path.exists(denoising_pretrained_loc):
         denoising_model.load_state_dict(torch.load(denoising_pretrained_loc))
 
-    visualize_diffusion(denoising_model, diffusion_config, train_dataloader, val_dataloader, autoencoder, foldername)
+    visualize_diffusion(denoising_model, diffusion_config, val_dataloader, autoencoder, foldername)
 

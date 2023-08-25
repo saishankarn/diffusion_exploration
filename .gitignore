@@ -10,3 +10,4 @@ time-series-diffusion/baselines/latent_diffusion/save
 time-series-diffusion/baselines/conditional_diffusion_backup
 time-series-diffusion/baselines/conditional_diffusion/save
 time-series-diffusion/baselines/conditional_diffusion/latent_diffusion/save
+time-series-diffusion/electricity/variational_autoencoder/save

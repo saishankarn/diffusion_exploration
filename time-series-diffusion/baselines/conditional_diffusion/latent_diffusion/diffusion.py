@@ -60,33 +60,33 @@ def train(diffmodel, config, train_loader, val_loader, autoencoder, foldername="
 
     best_training_loss = 1e10
     for epoch_no in range(config["train"]["epochs"]):
-        # avg_denoising_loss = 0
-        # diffmodel.train()
-        # with tqdm(train_loader, mininterval=5.0, maxinterval=50.0) as it:
-        #     for batch_no, train_batch in enumerate(it, start=1):
-        #         optimizer.zero_grad()
+        avg_denoising_loss = 0
+        diffmodel.train()
+        with tqdm(train_loader, mininterval=5.0, maxinterval=50.0) as it:
+            for batch_no, train_batch in enumerate(it, start=1):
+                optimizer.zero_grad()
 
-        #         mu_batch = train_batch["mean"]
-        #         sigma_batch = train_batch["var"]
-        #         x = [mu_batch + sigma_batch * torch.randn_like(sigma_batch) for idx in range(config["train"]["repeat_latent_num"])]
-        #         x = torch.cat(x,0)
+                mu_batch = train_batch["mean"]
+                sigma_batch = train_batch["var"]
+                x = [mu_batch + sigma_batch * torch.randn_like(sigma_batch) for idx in range(config["train"]["repeat_latent_num"])]
+                x = torch.cat(x,0)
                 
-        #         label_batch = train_batch["label"]
-        #         y = [label_batch for idx in range(config["train"]["repeat_latent_num"])]
-        #         y = torch.cat(y,0)
+                label_batch = train_batch["label"]
+                y = [label_batch for idx in range(config["train"]["repeat_latent_num"])]
+                y = torch.cat(y,0)
 
-        #         denoising_loss = diffmodel(data=x, label=y)
-        #         denoising_loss.backward()
-        #         avg_denoising_loss += denoising_loss.item()
-        #         optimizer.step()
-        #         it.set_postfix(ordered_dict={"avg_epoch_loss": avg_denoising_loss / batch_no, "epoch": epoch_no}, refresh=False)
-        #     lr_scheduler.step()
+                denoising_loss = diffmodel(data=x, label=y)
+                denoising_loss.backward()
+                avg_denoising_loss += denoising_loss.item()
+                optimizer.step()
+                it.set_postfix(ordered_dict={"avg_epoch_loss": avg_denoising_loss / batch_no, "epoch": epoch_no}, refresh=False)
+            lr_scheduler.step()
 
-        # if avg_denoising_loss < best_training_loss:
-        #     best_training_loss = avg_denoising_loss
-        #     print("\n best loss is updated to ", avg_denoising_loss / batch_no, "at", epoch_no)
-        #     best_model_path = os.path.join(foldername, "model_best.pth")
-        #     torch.save(diffmodel.state_dict(), best_model_path)
+        if avg_denoising_loss < best_training_loss:
+            best_training_loss = avg_denoising_loss
+            print("\n best loss is updated to ", avg_denoising_loss / batch_no, "at", epoch_no)
+            best_model_path = os.path.join(foldername, "model_best.pth")
+            torch.save(diffmodel.state_dict(), best_model_path)
 
         if epoch_no%config["train"]["run_eval_after_every"] == 0:
             diffmodel.eval()
